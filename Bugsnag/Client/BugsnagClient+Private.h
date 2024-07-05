@@ -93,7 +93,8 @@ BSG_OBJC_DIRECT_MEMBERS
  */
 - (void)notifyErrorOrException:(id)errorOrException
                stackStripDepth:(NSUInteger)stackStripDepth
-                         block:(_Nullable BugsnagOnErrorBlock)block;
+                         block:(_Nullable BugsnagOnErrorBlock)block
+                    completion:(void(^_Nullable)(void))completion;
 
 @end
 

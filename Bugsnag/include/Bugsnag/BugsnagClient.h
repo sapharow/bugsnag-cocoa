@@ -59,7 +59,8 @@ BUGSNAG_EXTERN
  *
  * @param exception  The exception.
  */
-- (void)notify:(NSException *_Nonnull)exception;
+- (void)notify:(NSException *_Nonnull)exception
+    completion:(void(^_Nullable)(void))completion;
 
 /**
  *  Send a custom or caught exception to Bugsnag
@@ -68,14 +69,16 @@ BUGSNAG_EXTERN
  *  @param block     A block for optionally configuring the error report
  */
 - (void)notify:(NSException *_Nonnull)exception
-         block:(BugsnagOnErrorBlock _Nullable)block;
+         block:(BugsnagOnErrorBlock _Nullable)block
+    completion:(void(^_Nullable)(void))completion;
 
 /**
  *  Send an error to Bugsnag
  *
  *  @param error The error
  */
-- (void)notifyError:(NSError *_Nonnull)error;
+- (void)notifyError:(NSError *_Nonnull)error
+         completion:(void(^_Nullable)(void))completion;
 
 /**
  *  Send an error to Bugsnag
@@ -84,7 +87,8 @@ BUGSNAG_EXTERN
  *  @param block A block for optionally configuring the error report
  */
 - (void)notifyError:(NSError *_Nonnull)error
-              block:(BugsnagOnErrorBlock _Nullable)block;
+              block:(BugsnagOnErrorBlock _Nullable)block
+         completion:(void(^_Nullable)(void))completion;
 
 // =============================================================================
 // MARK: - Breadcrumbs

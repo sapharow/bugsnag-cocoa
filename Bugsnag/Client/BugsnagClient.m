@@ -339,8 +339,8 @@ BSG_OBJC_DIRECT_MEMBERS
         self.eventFromLastLaunch = nil;
     }
     
-    [self.eventUploader uploadStoredEvents];
-    
+    [self.eventUploader uploadStoredEventsWithCompletion:nil];
+
 #if BSG_HAVE_APP_HANG_DETECTION
     // App hang detector deliberately started after sendLaunchCrashSynchronously (which by design may itself trigger an app hang)
     // Note: BSGAppHangDetector itself checks configuration.enabledErrorTypes.appHangs
@@ -507,7 +507,7 @@ BSG_OBJC_DIRECT_MEMBERS
                   usingCallback:^(BOOL connected, NSString *connectionType) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (connected) {
-            [strongSelf.eventUploader uploadStoredEvents];
+            [strongSelf.eventUploader uploadStoredEventsWithCompletion:nil];
             [strongSelf.sessionTracker.sessionUploader processStoredSessions];
         }
 
@@ -647,28 +647,28 @@ BSG_OBJC_DIRECT_MEMBERS
 // Note: Each BSGPreventInlining call site within a module MUST pass a different
 //       string to prevent outlining!
 
-- (void)notifyError:(NSError *)error {
+- (void)notifyError:(NSError *)error completion:(void(^_Nullable)(void))completion {
     bsg_log_debug(@"%s %@", __PRETTY_FUNCTION__, error);
     BSGPreventInlining(@"Prevent");
-    [self notifyErrorOrException:error stackStripDepth:2 block:nil];
+    [self notifyErrorOrException:error stackStripDepth:2 block:nil completion:completion];
 }
 
-- (void)notifyError:(NSError *)error block:(BugsnagOnErrorBlock)block {
+- (void)notifyError:(NSError *)error block:(BugsnagOnErrorBlock)block completion:(void(^_Nullable)(void))completion {
     bsg_log_debug(@"%s %@", __PRETTY_FUNCTION__, error);
     BSGPreventInlining(@"inlining");
-    [self notifyErrorOrException:error stackStripDepth:2 block:block];
+    [self notifyErrorOrException:error stackStripDepth:2 block:block completion:completion];
 }
 
-- (void)notify:(NSException *)exception {
+- (void)notify:(NSException *)exception completion:(void(^_Nullable)(void))completion {
     bsg_log_debug(@"%s %@", __PRETTY_FUNCTION__, exception);
     BSGPreventInlining(@"and");
-    [self notifyErrorOrException:exception stackStripDepth:2 block:nil];
+    [self notifyErrorOrException:exception stackStripDepth:2 block:nil completion:completion];
 }
 
-- (void)notify:(NSException *)exception block:(BugsnagOnErrorBlock)block {
+- (void)notify:(NSException *)exception block:(BugsnagOnErrorBlock)block completion:(void(^_Nullable)(void))completion {
     bsg_log_debug(@"%s %@", __PRETTY_FUNCTION__, exception);
     BSGPreventInlining(@"outlining");
-    [self notifyErrorOrException:exception stackStripDepth:2 block:block];
+    [self notifyErrorOrException:exception stackStripDepth:2 block:block completion:completion];
 }
 
 // MARK: - Notify (Internal)
@@ -685,7 +685,8 @@ BSG_OBJC_DIRECT_MEMBERS
 
 - (void)notifyErrorOrException:(id)errorOrException
                stackStripDepth:(NSUInteger)stackStripDepth
-                         block:(_Nullable BugsnagOnErrorBlock)block {
+                         block:(_Nullable BugsnagOnErrorBlock)block
+                    completion:(void(^_Nullable)(void))completion {
     BugsnagCorrelation *correlation = [self getCurrentCorrelation];
     NSDictionary *systemInfo = [BSG_KSSystemInfo systemInfo];
     BugsnagMetadata *metadata = [self.metadata copy];
@@ -726,6 +727,9 @@ BSG_OBJC_DIRECT_MEMBERS
     }
     else {
         bsg_log_warn(@"Unsupported error type passed to notify: %@", NSStringFromClass([errorOrException class]));
+        if (completion) {
+            completion();
+        }
         return;
     }
 
@@ -763,7 +767,7 @@ BSG_OBJC_DIRECT_MEMBERS
     event.originalError = errorOrException;
     event.correlation = correlation;
 
-    [self notifyInternal:event block:block];
+    [self notifyInternal:event block:block completion:completion];
 }
 
 /**
@@ -773,17 +777,24 @@ BSG_OBJC_DIRECT_MEMBERS
  *  @param block     Configuration block for adding additional report information
  */
 - (void)notifyInternal:(BugsnagEvent *_Nonnull)event
-                 block:(BugsnagOnErrorBlock)block
+                 block:(nullable BugsnagOnErrorBlock)block
+            completion:(void(^_Nullable)(void))completion
 {
     // Checks whether releaseStage is in enabledReleaseStages, blocking onError callback from running if it is not.
     if (!self.configuration.shouldSendReports || ![event shouldBeSent]) {
         bsg_log_info("Discarding error because releaseStage '%@' not in enabledReleaseStages", self.configuration.releaseStage);
+        if (completion) {
+            completion();
+        }
         return;
     }
     
     NSString *errorClass = event.errors.firstObject.errorClass;
     if ([self.configuration shouldDiscardErrorClass:errorClass]) {
         bsg_log_info(@"Discarding event because errorClass \"%@\" matched configuration.discardClasses", errorClass);
+        if (completion) {
+            completion();
+        }
         return;
     }
     
@@ -807,6 +818,9 @@ BSG_OBJC_DIRECT_MEMBERS
     BOOL originalUnhandledValue = event.unhandled;
     @try {
         if (block != nil && !block(event)) { // skip notifying if callback false
+            if (completion) {
+                completion();
+            }
             return;
         }
     } @catch (NSException *exception) {
@@ -829,9 +843,9 @@ BSG_OBJC_DIRECT_MEMBERS
         [self.eventUploader storeEvent:event];
         // Replicate previous delivery mechanism's behaviour of waiting 1 second before delivering the event.
         // This should prevent potential duplicate uploads of unhandled errors where the app subsequently terminates.
-        [self.eventUploader uploadStoredEventsAfterDelay:1];
+        [self.eventUploader uploadStoredEventsAfterDelay:1 completion:completion];
     } else {
-        [self.eventUploader uploadEvent:event completionHandler:nil];
+        [self.eventUploader uploadEvent:event completionHandler:completion];
     }
 
     [self addAutoBreadcrumbForEvent:event];
@@ -1098,7 +1112,7 @@ BSG_OBJC_DIRECT_MEMBERS
 
     const BOOL fatalOnly = self.configuration.appHangThresholdMillis == BugsnagAppHangThresholdFatalOnly;
     if (!fatalOnly && self.appHangEvent) {
-        [self notifyInternal:(BugsnagEvent * _Nonnull)self.appHangEvent block:nil];
+        [self notifyInternal:(BugsnagEvent * _Nonnull)self.appHangEvent block:nil completion:nil];
     }
     self.appHangEvent = nil;
 #endif

@@ -93,9 +93,12 @@ BSG_OBJC_DIRECT_MEMBERS
     [self.uploadQueue addOperation:operation];
 }
 
-- (void)uploadStoredEvents {
+- (void)uploadStoredEventsWithCompletion:(void(^_Nullable)(void))completion {
     if (self.scanQueue.operationCount > 1) {
         // Prevent too many scan operations being scheduled
+        if (completion) {
+            completion();
+        }
         return;
     }
     bsg_log_debug(@"Will scan stored events");
@@ -106,13 +109,18 @@ BSG_OBJC_DIRECT_MEMBERS
         NSArray<BSGEventUploadFileOperation *> *operations = [self uploadOperationsWithFiles:sortedFiles];
         bsg_log_debug(@"Uploading %lu stored events", (unsigned long)operations.count);
         [self.uploadQueue addOperations:operations waitUntilFinished:NO];
+        [self.uploadQueue addOperationWithBlock:^{
+            if (completion) {
+                completion();
+            }
+        }];
     }];
 }
 
-- (void)uploadStoredEventsAfterDelay:(NSTimeInterval)delay {
+- (void)uploadStoredEventsAfterDelay:(NSTimeInterval)delay completion:(void(^_Nullable)(void))completion {
     dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_UTILITY, 0);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), queue, ^{
-        [self uploadStoredEvents];
+        [self uploadStoredEventsWithCompletion:completion];
     });
 }
 

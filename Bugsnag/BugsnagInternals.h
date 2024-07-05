@@ -96,7 +96,7 @@ typedef void (^ BSGClientObserver)(BSGClientObserverEvent event, _Nullable id va
 
 - (BugsnagDeviceWithState *)generateDeviceWithState:(NSDictionary *)systemInfo;
 
-- (void)notifyInternal:(BugsnagEvent *)event block:(nullable BugsnagOnErrorBlock)block;
+- (void)notifyInternal:(BugsnagEvent *_Nonnull)event block:(nullable BugsnagOnErrorBlock)block completion:(void(^_Nullable)(void))completion;
 
 - (void)updateSession:(BugsnagSession * _Nullable (^)(BugsnagSession * _Nullable session))block;
 

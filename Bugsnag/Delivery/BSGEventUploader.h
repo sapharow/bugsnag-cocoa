@@ -28,9 +28,9 @@ BSG_OBJC_DIRECT_MEMBERS
 
 - (void)uploadKSCrashReportWithFile:(NSString *)file completionHandler:(nullable void (^)(void))completionHandler;
 
-- (void)uploadStoredEvents;
+- (void)uploadStoredEventsWithCompletion:(void(^_Nullable)(void))completion;
 
-- (void)uploadStoredEventsAfterDelay:(NSTimeInterval)delay;
+- (void)uploadStoredEventsAfterDelay:(NSTimeInterval)delay completion:(void(^_Nullable)(void))completion;
 
 - (void)uploadLatestStoredEvent:(void (^)(void))completionHandler;
 

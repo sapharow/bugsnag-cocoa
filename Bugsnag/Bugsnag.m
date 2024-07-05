@@ -106,31 +106,47 @@ BSG_OBJC_DIRECT_MEMBERS
 // Note: Each BSGPreventInlining call site within a module MUST pass a different
 //       string to prevent outlining!
 
-+ (void)notify:(NSException *)exception {
++ (void)notify:(NSException *)exception completion:(void(^_Nullable)(void))completion {
     if ([self bugsnagReadyForInternalCalls]) {
         BSGPreventInlining(@"Prevent");
-        [self.client notifyErrorOrException:exception stackStripDepth:2 block:nil];
+        [self.client notifyErrorOrException:exception stackStripDepth:2 block:nil completion:completion];
+    } else {
+        if (completion) {
+            completion();
+        }
     }
 }
 
-+ (void)notify:(NSException *)exception block:(BugsnagOnErrorBlock)block {
++ (void)notify:(NSException *)exception block:(BugsnagOnErrorBlock)block completion:(void(^_Nullable)(void))completion {
     if ([self bugsnagReadyForInternalCalls]) {
         BSGPreventInlining(@"inlining");
-        [self.client notifyErrorOrException:exception stackStripDepth:2 block:block];
+        [self.client notifyErrorOrException:exception stackStripDepth:2 block:block completion:completion];
+    } else {
+        if (completion) {
+            completion();
+        }
     }
 }
 
-+ (void)notifyError:(NSError *)error {
++ (void)notifyError:(NSError *)error completion:(void(^_Nullable)(void))completion {
     if ([self bugsnagReadyForInternalCalls]) {
         BSGPreventInlining(@"and");
-        [self.client notifyErrorOrException:error stackStripDepth:2 block:nil];
+        [self.client notifyErrorOrException:error stackStripDepth:2 block:nil completion:completion];
+    } else {
+        if (completion) {
+            completion();
+        }
     }
 }
 
-+ (void)notifyError:(NSError *)error block:(BugsnagOnErrorBlock)block {
++ (void)notifyError:(NSError *)error block:(BugsnagOnErrorBlock)block completion:(void(^_Nullable)(void))completion {
     if ([self bugsnagReadyForInternalCalls]) {
         BSGPreventInlining(@"outlining");
-        [self.client notifyErrorOrException:error stackStripDepth:2 block:block];
+        [self.client notifyErrorOrException:error stackStripDepth:2 block:block completion:completion];
+    } else {
+        if (completion) {
+            completion();
+        }
     }
 }
 
